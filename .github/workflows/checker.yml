@@ -2,7 +2,7 @@ name: Rewards Stock Checker
 
 on:
   schedule:
-    - cron: '*/10 * * * *'  # Runs every 10 minutes
+    - cron: '*/10 * * * *'  # Runs every 10 minutes in the background
   workflow_dispatch:        # Allows manual trigger via "Run workflow" button
 
 jobs:
@@ -19,6 +19,7 @@ jobs:
 
       - name: Check Flipkart Gift Card Stock
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN || secrets.BOT_TOKEN || secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID || secrets.CHAT_ID || secrets.TELEGRAM_CHAT }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: python bing_flipkart_checker.py --once
