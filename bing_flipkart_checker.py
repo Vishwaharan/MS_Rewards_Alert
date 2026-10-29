@@ -86,17 +86,25 @@ def load_or_create_config():
     # Environment variables override (GitHub Secrets / Cloud hosting)
     notif = config.setdefault("notifications", {})
     tg = notif.setdefault("telegram", {})
-    env_tg_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    env_tg_chat = os.environ.get("TELEGRAM_CHAT_ID")
+    env_tg_token = (
+        os.environ.get("TELEGRAM_BOT_TOKEN")
+        or os.environ.get("BOT_TOKEN")
+        or os.environ.get("TELEGRAM_TOKEN")
+    )
+    env_tg_chat = (
+        os.environ.get("TELEGRAM_CHAT_ID")
+        or os.environ.get("CHAT_ID")
+        or os.environ.get("TELEGRAM_CHAT")
+    )
     if env_tg_token:
-        tg["bot_token"] = env_tg_token
+        tg["bot_token"] = env_tg_token.strip()
         tg["enabled"] = True
     if env_tg_chat:
-        tg["chat_id"] = env_tg_chat
+        tg["chat_id"] = str(env_tg_chat).strip()
 
-    env_ntfy_topic = os.environ.get("NTFY_TOPIC")
+    env_ntfy_topic = os.environ.get("NTFY_TOPIC") or os.environ.get("TOPIC")
     if env_ntfy_topic:
-        notif.setdefault("ntfy", {})["topic"] = env_ntfy_topic
+        notif.setdefault("ntfy", {})["topic"] = env_ntfy_topic.strip()
         notif["ntfy"]["enabled"] = True
 
     return config
@@ -429,6 +437,7 @@ def run_checker():
     parser.add_argument("--mode", choices=["http", "selenium"], help="Checking mode (http is fast & lightweight, selenium uses browser)")
     parser.add_argument("--headless", action="store_true", help="Run browser in headless mode")
     parser.add_argument("--once", action="store_true", help="Run once and exit immediately")
+    parser.add_argument("--notify-always", action="store_true", help="Send notification regardless of stock status (useful for manual testing)")
     parser.add_argument("--test-notify", action="store_true", help="Send a test notification to verify all channels")
     parser.add_argument("--interval", type=int, help="Check interval in seconds")
     args = parser.parse_args()
@@ -466,6 +475,13 @@ def run_checker():
     logger.info("Active Notifications: " + ", ".join(
         [k for k, v in config.get("notifications", {}).items() if (isinstance(v, bool) and v) or (isinstance(v, dict) and v.get("enabled"))]
     ))
+    tg_conf = config.get("notifications", {}).get("telegram", {})
+    if tg_conf.get("bot_token") and tg_conf.get("chat_id"):
+        chat_masked = str(tg_conf.get("chat_id"))[:4] + "***"
+        logger.info(f"Telegram Configured: YES (Chat ID: {chat_masked})")
+    else:
+        logger.info("Telegram Configured: NO (Waiting for stock or secrets not injected)")
+
     logger.info("Press Ctrl+C to stop.")
     logger.info("=" * 60)
 
@@ -484,6 +500,9 @@ def run_checker():
             details = result.get("details", "")
 
             logger.info(f"Result: [{status}] -> {details}")
+
+            # Check if this is a manual trigger (manual button click on GitHub or --notify-always)
+            is_manual_run = args.notify_always or os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
 
             # State transition detection
             if in_stock:
@@ -504,6 +523,15 @@ def run_checker():
                             "details": f"⚠️ {details}"
                         }
                         notify_user(config, out_info)
+                elif is_manual_run:
+                    # Send feedback when user manually clicks "Run workflow" so they know it worked
+                    logger.info(f"Manual check notification dispatched: {status}")
+                    manual_info = {
+                        "in_stock": in_stock,
+                        "status": f"MANUAL CHECK: {status}",
+                        "details": f"Manual run successful. Current status: {details}"
+                    }
+                    notify_user(config, manual_info)
                 elif last_in_stock_state is None and config.get("notify_on_startup", False) and not args.once:
                     # Notify once on startup when running continuous daemon
                     logger.info(f"Initial status notification sent: {status}")
