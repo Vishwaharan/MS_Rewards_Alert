@@ -1,0 +1,30 @@
+{
+  "target_reward": "Flipkart",
+  "check_interval_seconds": 300,
+  "rewards_url": "https://rewards.bing.com/redeem/sku/000885000034",
+  "mode": "http",
+  "headless": true,
+  "notify_on_in_stock": true,
+  "notify_on_out_of_stock": true,
+  "notify_on_startup": true,
+  "user_data_dir": "./browser_profile",
+  "http_cookie": "",
+  "notifications": {
+    "windows_toast": false,
+    "sound_alert": false,
+    "modal_popup": false,
+    "ntfy": {
+      "enabled": true,
+      "topic": "ms_rewards_flipkart_alerts"
+    },
+    "telegram": {
+      "enabled": true,
+      "bot_token": "9112528773:AAGbr4fnwHSAJteVFMrMPWtkW9UqDi4Lnsk",
+      "chat_id": "2005794714"
+    },
+    "discord": {
+      "enabled": false,
+      "webhook_url": ""
+    }
+  }
+}
