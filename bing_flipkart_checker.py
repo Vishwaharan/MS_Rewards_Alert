@@ -267,8 +267,8 @@ def notify_user(config: dict, status_info: dict):
 def parse_rewards_page(html: str) -> dict:
     """Parses HTML from Microsoft Rewards (supports both SKU page and Redeem catalog)."""
     # 1. Check for specific SKU JSON object embedded by Microsoft Rewards
-    # Example: {"id":"000885000034","title":"Flipkart Gift Card",...,"isDisabled":true,"fullTitle":"₹1000 Flipkart Gift Card"}
-    sku_pattern = r'\{\\?"id\\?":\\?"(0008[0-9]+)\\?",\\?"title\\?":\\?"Flipkart Gift Card\\"[^\r\n]+?\}'
+    # Matches both escaped (\"id\": \"...\") and unescaped ("id": "...")
+    sku_pattern = r'\{\\?"id\\?":\s*\\?"(0008[0-9]+)\\?",\s*\\?"title\\?":\s*\\?"Flipkart Gift Card\\?"[^\r\n]+?\}'
     sku_match = re.search(sku_pattern, html)
     if sku_match:
         try:
@@ -295,7 +295,23 @@ def parse_rewards_page(html: str) -> dict:
         except Exception as e:
             logger.debug(f"JSON SKU parsing error: {e}")
 
-    # 2. Check for common Microsoft Rewards out-of-stock banners
+    # 2. Check for explicit disabled state in JSON (unquoted or quoted)
+    if re.search(r'\\?"isDisabled\\?"\s*:\s*true', html, re.I):
+        return {
+            "in_stock": False,
+            "status": "OUT OF STOCK",
+            "details": "Flipkart Gift Card is marked Out of Stock (isDisabled: true)."
+        }
+
+    # 3. Check for disabled button tag in rendered HTML (e.g. <button disabled="" data-disabled="true">...Redeem now...</button>)
+    if re.search(r'<button[^>]+(?:disabled=""|data-disabled="true")[^>]*>.*?redeem.*?</button>', html, re.I | re.DOTALL):
+        return {
+            "in_stock": False,
+            "status": "OUT OF STOCK",
+            "details": "Flipkart Gift Card Redeem button is currently disabled."
+        }
+
+    # 4. Check for common Microsoft Rewards out-of-stock banners
     html_lower = html.lower()
     restocking_phrases = [
         "so popular we're restocking",
@@ -312,17 +328,16 @@ def parse_rewards_page(html: str) -> dict:
                 "details": f"Flipkart Gift Card is currently Out of Stock (Status: '{phrase.title()}')."
             }
 
-    # 3. Check for active redeem button
+    # 5. Check for active redeem button without disabled attributes
     if "redeem now" in html_lower or "redeem reward" in html_lower:
-        # Check if button is marked disabled
-        if 'isdisabled":true' not in html_lower and 'disabled=""' not in html_lower:
+        if 'disabled=""' not in html_lower and 'data-disabled="true"' not in html_lower:
             return {
                 "in_stock": True,
                 "status": "IN STOCK",
                 "details": "🎉 Flipkart Gift Card Redeem button is ACTIVE and ready to claim!"
             }
 
-    # 4. Check if Flipkart is found at all
+    # 6. Check if Flipkart is found at all
     if "flipkart" in html_lower:
         return {
             "in_stock": True,
