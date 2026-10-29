@@ -6,7 +6,7 @@
   "headless": true,
   "notify_on_in_stock": true,
   "notify_on_out_of_stock": true,
-  "notify_on_startup": true,
+  "notify_on_startup": false,
   "user_data_dir": "./browser_profile",
   "http_cookie": "",
   "notifications": {
@@ -19,8 +19,8 @@
     },
     "telegram": {
       "enabled": true,
-      "bot_token": "9112528773:AAGbr4fnwHSAJteVFMrMPWtkW9UqDi4Lnsk",
-      "chat_id": "2005794714"
+      "bot_token": "",
+      "chat_id": ""
     },
     "discord": {
       "enabled": false,
