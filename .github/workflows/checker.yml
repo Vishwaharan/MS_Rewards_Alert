@@ -1,0 +1,16 @@
+name: Rewards Stock Checker
+on:
+  schedule:
+    - cron: '*/10 * * * *'  # Runs every 10 minutes
+  workflow_dispatch:        # Allows manual trigger button
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run Stock Check
+        run: python bing_flipkart_checker.py --once
