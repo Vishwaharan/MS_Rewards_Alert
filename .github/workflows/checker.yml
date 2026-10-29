@@ -2,7 +2,8 @@ name: Rewards Stock Checker
 
 on:
   schedule:
-    - cron: '*/10 * * * *'  # Runs every 10 minutes in the background
+    # Runs at minutes 4, 14, 24, 34, 44, 54 (avoids queue traffic)
+    - cron: '4,14,24,34,44,54 * * * *'
   workflow_dispatch:        # Allows manual trigger via "Run workflow" button
 
 jobs:
