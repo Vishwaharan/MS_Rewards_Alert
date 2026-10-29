@@ -69,21 +69,37 @@ DEFAULT_CONFIG = {
 }
 
 def load_or_create_config():
-    if not os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(DEFAULT_CONFIG, f, indent=4)
-        logger.info(f"Created default configuration file: {CONFIG_FILE}")
-        return DEFAULT_CONFIG
-    try:
-        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-            config = json.load(f)
-            for key, val in DEFAULT_CONFIG.items():
-                if key not in config:
-                    config[key] = val
-            return config
-    except Exception as e:
-        logger.error(f"Failed to read {CONFIG_FILE}: {e}. Using default configuration.")
-        return DEFAULT_CONFIG
+    config = {}
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to read {CONFIG_FILE}: {e}. Using default configuration.")
+    else:
+        logger.info(f"{CONFIG_FILE} not found. Using defaults and environment variables.")
+
+    for key, val in DEFAULT_CONFIG.items():
+        if key not in config:
+            config[key] = val
+
+    # Environment variables override (GitHub Secrets / Cloud hosting)
+    notif = config.setdefault("notifications", {})
+    tg = notif.setdefault("telegram", {})
+    env_tg_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    env_tg_chat = os.environ.get("TELEGRAM_CHAT_ID")
+    if env_tg_token:
+        tg["bot_token"] = env_tg_token
+        tg["enabled"] = True
+    if env_tg_chat:
+        tg["chat_id"] = env_tg_chat
+
+    env_ntfy_topic = os.environ.get("NTFY_TOPIC")
+    if env_ntfy_topic:
+        notif.setdefault("ntfy", {})["topic"] = env_ntfy_topic
+        notif["ntfy"]["enabled"] = True
+
+    return config
 
 # ==========================================
 # Notification Helpers
@@ -488,8 +504,8 @@ def run_checker():
                             "details": f"⚠️ {details}"
                         }
                         notify_user(config, out_info)
-                elif last_in_stock_state is None and config.get("notify_on_startup", True):
-                    # Notify once on startup so user knows current status and script is running
+                elif last_in_stock_state is None and config.get("notify_on_startup", False) and not args.once:
+                    # Notify once on startup when running continuous daemon
                     logger.info(f"Initial status notification sent: {status}")
                     startup_info = {
                         "in_stock": in_stock,
